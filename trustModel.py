@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from qiskit.quantum_info import partial_trace, DensityMatrix
 import numpy as np
 
+import textstat
+
 #Initialize AI 
 load_dotenv()
 api_key = os.getenv("OPEN_AI_KEY")
@@ -21,10 +23,15 @@ simulator = AerSimulator()
 
 #Initialize Variables
 totalAngle = 0
-counter = 1
 totalSentimentAngle = 0
+totalClarityAngle = 0
+totalRelianceAngle = 0
+totalTaskCompletionAngle = 0
+totalAccuracyAngle = 0
 
-# Quantum Circuit Initialization - 0 for trust, 1 for emotion, 2 for reliance, 3 for task completion, 4 for clarity, 5 for accuracy
+previousRelianceAngle = 0
+
+# Quantum Circuit Initialization - 0 for trust, 1 for sentiment, 2 for reliance, 3 for task completion, 4 for clarity, 5 for accuracy
 qBits = QuantumCircuit(6)
 
 #Apply Superposition
@@ -32,6 +39,41 @@ qBits.h(0)
 
 def showCircuit():
     print(qBits.draw())
+
+def readability_score(text):
+    """Computes a single readability score in the range [-1,1] using a simple weighted average"""
+    
+    # Get readability metrics
+    flesch = textstat.flesch_reading_ease(text)  # Higher = easier
+    fk_grade = textstat.flesch_kincaid_grade(text)  # Lower = easier
+    gunning_fog = textstat.gunning_fog(text)  # Lower = easier
+    smog = textstat.smog_index(text)  # Lower = easier
+    ari = textstat.automated_readability_index(text)  # Lower = easier
+    dale_chall = textstat.dale_chall_readability_score(text)  # Lower = easier
+
+    # Convert all metrics to the same scale (higher = easier)
+    max_flesch = 100
+    max_grade = 20  # Approximate max grade level
+    max_dale_chall = 10
+
+    normalized_scores = [
+        flesch / max_flesch,  # Already 0-1
+        1 - (fk_grade / max_grade),
+        1 - (gunning_fog / max_grade),
+        1 - (smog / max_grade),
+        1 - (ari / max_grade),
+        1 - (dale_chall / max_dale_chall),
+    ]
+
+    print(normalized_scores)
+
+    # Ensure values are within [0,1]
+    normalized_scores = [max(min(s, 1), 0) for s in normalized_scores]
+
+    combined_score = np.mean(normalized_scores)
+
+    # Scale to [-1,1]
+    return 2 * combined_score - 1
 
 def initialTrust(userInput):
 
@@ -43,25 +85,28 @@ def initialTrust(userInput):
     qBits.ry(theta, 0)
 
 def riskAnalysis(userInput):
-
-    theta = 0
-
+    global totalAngle
+    
+    risk_factor = (userInput / 10)
+    theta = -risk_factor * (math.pi / 8)
+    
     qBits.ry(theta, 0)
 
-
 def priorKnowledgeAnalysis(userInput):
-
-    theta = 0
-
+    global totalRelianceAngle
+    
+    knowledge_factor = (userInput / 10)  # Normalize knowledge input between 0 and 1
+    theta = -knowledge_factor * (math.pi / 8)  # Negative rotation to decrease reliance
+    
     qBits.ry(theta, 2)
 
-def sentimentAnalysis(userInput):
-    global totalAngle, counter, totalSentimentAngle
+def sentimentAnalysis(userInput, counter):
+    global totalAngle, totalSentimentAngle
 
     totalAngle = getCurrentAngle(qBits, 0)
 
     print(f"Total sentiment angle is: {totalSentimentAngle}")
-    print(f"Total angle is: {totalAngle}")
+    print(f"Total trust angle is: {totalAngle}")
     
     sentimentBackground=[{
         "role": "system", 
@@ -81,7 +126,7 @@ def sentimentAnalysis(userInput):
     sentimentAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=sentimentBackground)
     sentimentAnalysis= sentimentAnalysisAI.choices[0].message.content
     sentimentAnalysisVal= float(sentimentAnalysis)
-    print(sentimentAnalysisVal)
+    print(f"Sentiment Score: {sentimentAnalysisVal}")
 
     # Calculate the remaining angle for sentiment adjustment
     leftOverTheta = math.pi - totalSentimentAngle 
@@ -101,31 +146,156 @@ def sentimentAnalysis(userInput):
         qBits.cry((0 - totalAngle)/counter, 1, 0)
     elif sentimentAnalysisVal > 0:
         qBits.cry((math.pi - totalAngle)/counter, 1, 0)
-
-    showCircuit()
     
     totalAngle = getCurrentAngle(qBits, 0)
 
     print(f"Updated total trust angle: {totalAngle}")
-    counter += 0.5
 
-def updateTaskCompletion():
-    pass
+def updateTaskCompletion(followUpQuestions, counter):
+    global totalRelianceAngle, totalTaskCompletionAngle
 
-def updateClarity():
-    pass
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
 
-def updateAccuracy():
-    pass
+    print(f"Total taskcompletion angle is: {totalTaskCompletionAngle}")
+    print(f"Total reliance angle is: {totalRelianceAngle}")
 
-def updateReliance():
-    #reliance is based on task completion rate, accuracy and clarity of response
-    pass
+    print(f"Number of Follow Up Questions: {followUpQuestions}")
+    
+    if followUpQuestions > 2:
+        leftOverTheta = math.pi - totalTaskCompletionAngle
 
-#Will need to organize the code, so only one function needs to be called from the front end - Only when we know all backend functions are working
-def updateTrust():
-    pass
+        decrement_factor = (followUpQuestions - 2) * 0.1
+        theta = -decrement_factor * leftOverTheta / counter
+        
+        qBits.ry(theta, 3)
 
+        qBits.cry((0 - totalRelianceAngle)/counter, 3, 2)
+
+        totalTaskCompletionAngle += theta
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+
+    print(f"Updated total reliance angle: {totalRelianceAngle}")
+
+def updateClarity(aiResponse, counter):
+    global totalRelianceAngle, totalClarityAngle
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+
+    print(f"Total clarity angle is: {totalClarityAngle}")
+    print(f"Total reliance angle is: {totalRelianceAngle}")
+    
+    clarityAnalysisVal = readability_score(aiResponse)
+
+    print(f"Clarity Score: {clarityAnalysisVal}")
+
+    # Calculate the remaining angle for sentiment adjustment
+    leftOverTheta = math.pi - totalClarityAngle 
+
+    if totalClarityAngle < 0:
+        leftOverTheta = -(-math.pi - totalClarityAngle)
+    
+    theta = (clarityAnalysisVal * leftOverTheta)/counter
+
+    print(f"ClarityTheta: {theta}")
+
+    qBits.ry(theta, 4)
+
+    totalClarityAngle += theta
+
+    if clarityAnalysisVal < 0:
+        qBits.cry((0 - totalRelianceAngle)/counter, 4, 2)
+    elif clarityAnalysisVal > 0:
+        qBits.cry((math.pi - totalRelianceAngle)/counter, 4, 2)
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+
+    print(f"Updated total reliance angle: {totalRelianceAngle}")
+
+def updateAccuracy(aiResponse, counter):
+    global totalRelianceAngle, totalAccuracyAngle
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+
+    print(f"Total accuracy angle is: {totalAccuracyAngle}")
+    print(f"Total reliance angle is: {totalRelianceAngle}")
+    
+    accuracyBackground=[{
+        "role": "system", 
+        "content": 
+        """
+        Your task is to analyze the text given to you and tell me its accuracy (i.e. fact check). Give it a score ranging from -1 to 1 depending on how accurate it is.
+        (e.g. Anything greater than 0 is going towards accuracy and anything below 0 is going towards inaccuracy). 
+
+        Fact check from a number of sources online to gather the score, and make sure to give a number that is as correct as possible.
+        You can get a number in between 0, 1 and -1 as well if some parts of the text is true and others are false. 
+        (For example, if you have text of 2 sentences and one of them is completely false while other is completely correct, it should be around 0.5)
+
+        Give a score of 0 for sentences that seem to be opinions or subjective as well as ones that are not fact checkable (i.e. response to Hello)
+
+        Only give me a number and nothing else. 
+        """
+    }]
+    
+    accuracyBackground.append({"role": "user", "content": aiResponse})
+    accuracyAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=accuracyBackground)
+    accuracyAnalysis= accuracyAnalysisAI.choices[0].message.content
+    accuracyAnalysisVal= float(accuracyAnalysis)
+
+    print(f"Accuracy Analysis Score: {accuracyAnalysisVal}")
+
+    # Calculate the remaining angle for sentiment adjustment
+    leftOverTheta = math.pi - totalAccuracyAngle 
+
+    if totalAccuracyAngle < 0:
+        leftOverTheta = -(-math.pi - totalAccuracyAngle)
+    
+    theta = accuracyAnalysisVal * leftOverTheta /counter
+
+    print(f"Accuracy Analysis Theta: {theta}")
+
+    qBits.ry(theta, 5)
+
+    totalAccuracyAngle += theta
+
+    if accuracyAnalysisVal < 0:
+        qBits.cry((0 - totalRelianceAngle)/counter, 5, 2)
+    elif accuracyAnalysisVal > 0:
+        qBits.cry((math.pi - totalRelianceAngle)/counter, 5, 2)
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+
+def updateReliance(aiResponse, followUpQuestions, counter):
+    updateClarity(aiResponse, counter)
+    updateAccuracy(aiResponse, counter)
+    updateTaskCompletion(followUpQuestions, counter)
+
+    #Update Trust
+
+    global totalAngle, totalRelianceAngle, previousRelianceAngle
+
+    totalRelianceAngle = getCurrentAngle(qBits, 2)
+    totalAngle = getCurrentAngle(qBits, 0)
+
+    print(f"Total reliance angle is: {totalRelianceAngle}")
+    print(f"Total trust angle is: {totalAngle}")
+
+    if (totalRelianceAngle - previousRelianceAngle) < 0:
+        qBits.cry((0 - totalAngle)/counter, 2, 0)
+    elif (totalRelianceAngle - previousRelianceAngle) > 0:
+        qBits.cry((math.pi - totalAngle)/counter, 2, 0)
+
+    previousRelianceAngle = totalRelianceAngle
+
+    totalAngle = getCurrentAngle(qBits, 0)
+
+    print(f"Updated total trust angle: {totalAngle}")
+
+def updateTrust(userInput, aiResponse, counter, followUpQuestions):
+    sentimentAnalysis(userInput, counter)
+    updateReliance(aiResponse, followUpQuestions, counter)
+
+    showCircuit()
 
 def getSingleQubitProbabilities():
     # Obtain the statevector from the quantum circuit
@@ -133,7 +303,11 @@ def getSingleQubitProbabilities():
     
     # Compute the reduced density matrix for qubit 0 by tracing out qubit 1
     reduced_dm = partial_trace(state, [1])
-    
+    reduced_dm = partial_trace(reduced_dm, [1])
+    reduced_dm = partial_trace(reduced_dm, [1])
+    reduced_dm = partial_trace(reduced_dm, [1])
+    reduced_dm = partial_trace(reduced_dm, [1])
+
     # Convert the reduced state to a DensityMatrix
     dm = DensityMatrix(reduced_dm)
     
