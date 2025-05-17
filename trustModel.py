@@ -95,8 +95,8 @@ def riskAnalysis(userInput):
 def priorKnowledgeAnalysis(userInput):
     global totalRelianceAngle
     
-    knowledge_factor = (userInput / 10)  # Normalize knowledge input between 0 and 1
-    theta = -knowledge_factor * (math.pi / 8)  # Negative rotation to decrease reliance
+    knowledge_factor = (userInput / 10)  
+    theta = -knowledge_factor * (math.pi / 8)  
     
     qBits.ry(theta, 2)
 
