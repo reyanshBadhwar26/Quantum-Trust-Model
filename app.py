@@ -7,11 +7,16 @@ import numpy as np
 from io import BytesIO
 import trustModel as trust
 import time  # Import time module
+import pandas as pd
 
 # Initialization
 load_dotenv()
 api_key = os.getenv("OPEN_AI_KEY")
 openai.api_key = api_key
+
+def save_trust_scores_to_csv(trust_scores, filename="trust_scores.csv"):  # NEW FUNCTION
+    df = pd.DataFrame(trust_scores, columns=["TrustScoreRatio"])
+    df.to_csv(filename, index=False)
 
 # Store variables in session state to persist across reruns
 if "counter" not in st.session_state:
@@ -80,20 +85,22 @@ else:
             ratio = counts * 100
             st.session_state.trustScoresRatio.append(ratio)
 
+            save_trust_scores_to_csv(st.session_state.trustScoresRatio)
+
             st.session_state.counter += 0.5  # Update counter in session state
 
-    # Plot Trust Scores in Real-Time
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(range(len(st.session_state.trustScoresRatio)), st.session_state.trustScoresRatio, label="Trust Score Ratio")
-    ax.set_xticks(range(len(st.session_state.trustScoresRatio)))
-    ax.set_yticks(list(range(0, 101, 10)))
-    ax.set_title("Trust Level Evolution")
-    ax.set_xlabel("Interaction Count")
-    ax.set_ylabel("Trust Score")
-    ax.legend()
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    st.image(buf)
+    # # Plot Trust Scores in Real-Time
+    # fig, ax = plt.subplots(figsize=(10, 5))
+    # ax.plot(range(len(st.session_state.trustScoresRatio)), st.session_state.trustScoresRatio, label="Trust Score Ratio")
+    # ax.set_xticks(range(len(st.session_state.trustScoresRatio)))
+    # ax.set_yticks(list(range(0, 101, 10)))
+    # ax.set_title("Trust Level Evolution")
+    # ax.set_xlabel("Interaction Count")
+    # ax.set_ylabel("Trust Score")
+    # ax.legend()
+    # buf = BytesIO()
+    # plt.savefig(buf, format="png")
+    # st.image(buf)
 
     # Sidebar Layout
     with st.sidebar:
