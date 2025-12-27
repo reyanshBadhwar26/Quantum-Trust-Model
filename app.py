@@ -2,11 +2,7 @@ import streamlit as st
 import openai
 from dotenv import load_dotenv
 import os
-import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
 import trustModel as trust
-import time  # Import time module
 import pandas as pd
 
 # Initialization
@@ -39,8 +35,7 @@ if "trustScoresRatio" not in st.session_state:
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": """
-                                  You are a kind and helpful assistant. Prompts from the user will usually include something related to an emergency situation (for example bleeding, choking, heart attack etc.).
-                                  You should always try to give the quickest and best response possible to get them out of the situation and tell them steps on how they could solve their problem."""}]
+                                  You are a kind and helpful assistant. You should always try to give the quickest and best response possible to get participants out of the situation and tell them steps on how they could solve their problem."""}]
 
 if "button_pressed" not in st.session_state:
     st.session_state.button_pressed = False
@@ -89,7 +84,7 @@ else:
 
             st.session_state.counter += 0.5  # Update counter in session state
 
-    # # Plot Trust Scores in Real-Time
+    # Plot Trust Scores in Real-Time
     # fig, ax = plt.subplots(figsize=(10, 5))
     # ax.plot(range(len(st.session_state.trustScoresRatio)), st.session_state.trustScoresRatio, label="Trust Score Ratio")
     # ax.set_xticks(range(len(st.session_state.trustScoresRatio)))
