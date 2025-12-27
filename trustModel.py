@@ -3,7 +3,6 @@ import openai
 from dotenv import load_dotenv
 import math
 from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
 
 from qiskit.quantum_info import Statevector
 from qiskit.visualization import plot_bloch_multivector
@@ -17,9 +16,6 @@ import textstat
 load_dotenv()
 api_key = os.getenv("OPEN_AI_KEY")
 openai.api_key = api_key
-
-#Initialize Classic Simulator -Not used in this code
-simulator = AerSimulator()
 
 #Initialize Variables
 totalAngle = 0
@@ -112,18 +108,20 @@ def sentimentAnalysis(userInput, counter):
         "role": "system", 
         "content": 
         """
-        Your task is to analyze the sentence given to you and tell me its sentiment. Give it a score ranging from -1 to 1 depdening on how positive it is.
-        (e.g. Anything greater then 0 is positve and anything below 0 is negative AND 0 is exactly neutral). 
-        Only give me a number and nothing else. For example if I put I hate you that is very negative so the answer would be very close to -1.
-        The closer to the 1 or -1 the better the sentiment.
-        Factor in the exclamation marks, extra question marks for frustation, capitalizations for urgency and frustation etc. All of these could affect the sentiment. 
-        If the user is just asking a simple question (for example, I am choking, what should I do?) that is near to neutral (0).
-        IT IS IMPORTANT THAT YOU FACTOR IN THE CONTEXT WHILE DECIDING ON A SENTIMENT. MAKE SURE TO LOOK AT THE CONVERSATIONS ABOVE THE ONE BEING JUDGED IN ORDER TO GIVE A NUMBER.
+            Your task is to analyze the sentence given to you and tell me its sentiment. 
+            Give it a score ranging from -1 to 1 depending on how positive it is. 
+            (e.g. Anything greater then 0 is positve and anything below 0 is negative AND 0 is exactly neutral). 
+            Only give me a number and nothing else. For example if I put “I hate you”, that is very negative so the answer would be very close to -1. 
+            The closer to the 1 or -1 the better the sentiment. 
+            Factor in the exclamation marks, extra question marks for frustation, capitalizations for urgency and frustation etc. 
+            All of these could affect the sentiment. If the user is just asking a simple question (for example, I am choking, what should I do?) that should be near to neutral (0). 
+            It is important that you factor in the context while deciding on a sentiment. 
+            Make sure to look at the conversations above the one being judged in order to give an accurate number.
         """
         }]
     
     sentimentBackground.append({"role": "user", "content": userInput})
-    sentimentAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=sentimentBackground)
+    sentimentAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=sentimentBackground, temperature=0, max_tokens=10, top_p=1.0)
     sentimentAnalysis= sentimentAnalysisAI.choices[0].message.content
     sentimentAnalysisVal= float(sentimentAnalysis)
     print(f"Sentiment Score: {sentimentAnalysisVal}")
@@ -226,19 +224,15 @@ def updateAccuracy(aiResponse, counter):
         """
         Your task is to analyze the text given to you and tell me its accuracy (i.e. fact check). Give it a score ranging from -1 to 1 depending on how accurate it is.
         (e.g. Anything greater than 0 is going towards accuracy and anything below 0 is going towards inaccuracy). 
-
-        Fact check from a number of sources online to gather the score, and make sure to give a number that is as correct as possible.
         You can get a number in between 0, 1 and -1 as well if some parts of the text is true and others are false. 
         (For example, if you have text of 2 sentences and one of them is completely false while other is completely correct, it should be around 0.5)
-
         Give a score of 0 for sentences that seem to be opinions or subjective as well as ones that are not fact checkable (i.e. response to Hello)
-
         Only give me a number and nothing else. 
         """
     }]
     
     accuracyBackground.append({"role": "user", "content": aiResponse})
-    accuracyAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=accuracyBackground)
+    accuracyAnalysisAI= openai.chat.completions.create(model="gpt-4o-mini",messages=accuracyBackground, temperature=0, max_tokens=10, top_p=1.0)
     accuracyAnalysis= accuracyAnalysisAI.choices[0].message.content
     accuracyAnalysisVal= float(accuracyAnalysis)
 
